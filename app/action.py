@@ -28,10 +28,11 @@ class Action:
         self.res = False
 
     def wx(self):
+        content = '\n'.join([f'> - [{title}]({detail_url})' for title, detail_url in self.contents])
         data = {
             'msgtype': 'markdown',
             'markdown': {
-                'content': f'### V2EX 当前热门\n{"".join(self.contents)}'
+                'content': f'### V2EX 当前热门\n{content}'
             }
         }
         headers = {'Content-Type': 'application/json'}
@@ -52,15 +53,46 @@ class Action:
                              digestmod=hashlib.sha256).digest()
         sign = urllib.parse.quote_plus(base64.b64encode(hmac_code))
         url = f'{self.hook}&timestamp={timestamp}&sign={sign}'
+        content = '\n'.join([f'> - [{title}]({detail_url})' for title, detail_url in self.contents])
         data = {
             'msgtype': 'markdown',
             'markdown': {
                 'title': 'V2EX 当前热门',
-                'text': f'### V2EX 当前热门\n{"".join(self.contents)}'
+                'text': f'### V2EX 当前热门\n{content}'
             }
         }
         headers = {'Content-Type': 'application/json'}
         requests.post(url=url,
+                      headers=headers,
+                      data=json.dumps(data),
+                      timeout=Action.timeout,
+                      verify=False)
+    
+    def feishu(self):
+        timestamp = str(round(time.time()))
+        string_to_sign = f'{timestamp}\n{self.secret}'
+        hmac_code = hmac.new(string_to_sign.encode("utf-8"), digestmod=hashlib.sha256).digest()
+        sign = base64.b64encode(hmac_code).decode('utf-8')
+        content = [[{
+            'tag': 'a',
+            'text': '· ' +title,
+            'href': detail_url
+        }] for title, detail_url in self.contents]
+        data = {
+            'timestamp': timestamp,
+            'sign': sign,
+            'msg_type': 'post',
+            'content': {
+                'post': {
+                    'zh_cn': {
+                        'title': 'V2EX 当前热门',
+                        'content': content
+                    }
+                }
+            }
+        }
+        headers = {'Content-Type': 'application/json'}
+        requests.post(url=self.hook,
                       headers=headers,
                       data=json.dumps(data),
                       timeout=Action.timeout,
@@ -78,15 +110,12 @@ class Action:
         match = re.compile(
             '<span class="item_hot_topic_title">(.*?)</span>', re.DOTALL)
         for item in match.findall(resp.text):
-            try:
-                detail_url = 'https://v2ex.com' + re.search(
-                    '<a href="(.*?)">', item.strip()).group(1)
-                title = re.search('">(.*?)</a>', item.strip()).group(1)
-                title = title.replace('[', '').replace(']', '')
-                content = f'> - [{title}]({detail_url})\n'
-                contents.append(content)
-            except Exception as e:
-                print(str(e))
+            item = item.replace("\n", "")
+            detail_url = 'https://v2ex.com' + re.search(
+                '<a href="(.*?)">', item.strip()).group(1)
+            title = re.search('">(.*?)</a>', item.strip()).group(1)
+            title = title.replace('[', '').replace(']', '')
+            contents.append((title, detail_url))
         return contents
 
     def run(self):
@@ -96,3 +125,5 @@ class Action:
             self.wx()
         elif 'dingtalk' in self.hook:
             self.ding()
+        elif 'feishu' in self.hook:
+            self.feishu()

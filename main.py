@@ -1,15 +1,27 @@
 from actions_toolkit import core
 
+from app import log
 from app.action import Action
 
-if __name__ == '__main__':
-    input_hook = core.get_input('webhook')
-    input_secret = core.get_input('secret', required=False)
-    count_str = core.get_input('count')
-    input_count = int(count_str) if count_str else 8
-    action = Action(input_hook, input_secret, input_count)
-    try:
-        action.run()
-        core.info('V2EX Action Run Successfully.')
-    except Exception as e:
-        core.set_failed(str(e))
+author = {
+    'name': 'Yang Libin',
+    'link': 'https://github.com/yanglbme'
+}
+marketplace = 'https://github.com/marketplace/actions/v2ex-action'
+
+log.info(f'Welcome to use V2EX Action ❤\n\n'
+         f'📕 Getting Started Guide: {marketplace}\n'
+         f'📣 Maintained by {author["name"]}: {author["link"]}\n')
+
+try:
+    hook = core.get_input('webhook', required=True)
+    secret = core.get_input('secret')
+    count = int(core.get_input('count') or 8)
+
+    log.info('Start running V2EX Action')
+    action = Action(hook, secret, count)
+    action.run()
+
+    log.info('Success, thanks for using @yanglbme/v2ex-action!')
+except Exception as e:
+    log.set_failed(str(e))
